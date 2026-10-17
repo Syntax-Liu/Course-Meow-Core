@@ -1,0 +1,20 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+// 这是「拾课喵 / CourseMeow」的跨平台核心层，独立成库：
+// 这里没有任何 Android 平台代码，`./gradlew :core:test` 就能单独编译并跑测试。
+rootProject.name = 'CourseMeow-Core'
+include ':core'

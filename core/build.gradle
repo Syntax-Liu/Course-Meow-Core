@@ -1,0 +1,57 @@
+// 纯 Kotlin（JVM）模块：放与 Android 平台无关的业务逻辑（领域模型 + 算法）。
+//
+// 目的：为将来接 Kotlin Multiplatform（KMP）与鸿蒙（HarmonyOS）铺路。
+//
+// 依赖约定（必须遵守）：
+//   ✅ 允许：纯 Kotlin、JDK 标准库；
+//   ✅ 允许：**仅注解用途**的 compileOnly 依赖 —— 它们只在编译期存在，不打包、不进运行时，
+//           运行时由宿主提供（Android 端由 app 的 androidx / 平台提供；将来鸿蒙端由 CMP 与
+//           SQLDelight 提供）。目前有：Room 的 @Entity、Compose 的 @Immutable。
+//   ❌ 禁止：android.* ；
+//   ❌ 禁止：需要放在运行时/打包进产物的 androidx.*（Room 运行时、DataStore、Glance、
+//           WorkManager、Compose UI、Navigation…）；
+//   ❌ 禁止：引用 app 模块的任何类型（UI、Repository、Android API 封装）。
+//
+// 判据很简单：把 app 整个删掉，这个模块仍应能独立编译、独立跑测试。
+plugins {
+    alias(libs.plugins.kotlin.jvm)
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+// 必须显式对齐到 17：JVM 模块里 Java 与 Kotlin 的 jvmTarget 不一致会直接编译失败。
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+        // kotlin.io.encoding.Base64 / 将来换 KMP 会大量用到，整个模块内 opt-in
+        freeCompilerArgs.add("-opt-in=kotlin.io.encoding.ExperimentalEncodingApi")
+    }
+}
+
+dependencies {
+    // kotlinx-datetime：跨平台时间 API，替换 java.time.*。
+    // 当前只加依赖，还没大面积替换代码（TimeCalc / HolidayCalendar 等改动量较大，
+    // 等 core 升级成 kotlin-multiplatform 时一起做）。
+    implementation libs.kotlinx.datetime
+
+    // Room 的 @Entity / @PrimaryKey 注解。room-common 是纯 JAR（不含 Android 代码），
+    // 所以普通的 kotlin-jvm 模块能直接吃。app 模块的 KSP 会照常从 core 的 jar 里
+    // 读到这些注解并为 @Database 生成 DAO 实现 —— 实体放在库里是 Room 的官方支持用法。
+    // 注：将来接 KMP 时数据层会换成 SQLDelight，这些注解随之去掉。
+    compileOnly libs.androidx.room.common
+
+    // org.json：Android 平台自带同名类，这里只在编译期给一个实现；不打包，
+    // 运行时由宿主（Android 的 boot classpath）提供。
+    compileOnly libs.org.json
+
+    // Compose 的 @Immutable：取 Compose Multiplatform 的运行时（CMP / 鸿蒙走的就是它），
+    // 同样只取注解、不打包；Android 端运行时由 androidx.compose.runtime 提供同名类。
+    compileOnly libs.jetbrains.compose.runtime
+
+    testImplementation libs.junit
+    // 测试运行时也需要 org.json（生产代码里 compileOnly 由 Android 宿主提供）
+    testImplementation libs.org.json
+}
